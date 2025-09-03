@@ -1,30 +1,37 @@
-import tkinter as tk
+from utils import utils_camera
+from utils import utils_video
 import cv2
-import sys
-import time
-import os
+import tkinter as tk
+from utils.utils_control import create_controls
 
 flip_state = [True]
+face_detection_enabled = [False]  # Use list for mutability
+alpha = [1.0] # Use list for mutability (contrast)
+beta = [0]    # Use list for mutability (brightness)
 
-def flip_camera():
-    flip_state[0] = not flip_state[0]
-    
-def capture_camera():
-    # Capture the current frame and save as capture.jpg
-    _, frame = cam.read()
-    
-    if flip_state[0]:
-        frame = cv2.flip(frame, 1)
-        
-        output_dir = "Images/"
-        if not os.path.exists(output_dir):
-            os.makedirs(output_dir)
-            
-        img_time = time.strftime("%Y%m%d_%H%M%S")
-        filename = f"Images/IMG_{img_time}.jpg"
-        cv2.imwrite(filename, frame)
-        print(f"Image saved as {filename}")
-    
+# --- Face detection code here ---
+face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+
+def detect_faces(frame):
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    faces = face_cascade.detectMultiScale(gray, 1.3, 5)
+    for (x, y, w, h) in faces:
+        cv2.rectangle(frame, (x, y), (x + w, y + h), (255, 0, 0), 2)
+    return frame
+
+def set_brightness(val):
+    beta[0] = int(val)
+
+def set_contrast(val):
+    alpha[0] = float(val)
+
+def toggle_face_detection():
+    face_detection_enabled[0] = not face_detection_enabled[0]
+    if face_detection_enabled[0]:
+        face_detect_btn.config(text="Face Detection: ON")
+    else:
+        face_detect_btn.config(text="Face Detection: OFF")
+
 def update():
     ret, frame = cam.read()
     if not ret:
@@ -35,16 +42,28 @@ def update():
     # Flip the frame horizontally if flip_state[0] is True
     if flip_state[0]:
         frame = cv2.flip(frame, 1)
-    rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-    # Encode as PNG to get bytes for Tkinter PhotoImage
-    _, buf = cv2.imencode('.png', cv2.cvtColor(rgb_frame, cv2.COLOR_BGR2RGBA))
-    
 
+    # Apply brightness and contrast
+    frame = cv2.convertScaleAbs(frame, alpha=alpha[0], beta=beta[0])
+
+    # Run face detection if enabled
+    if face_detection_enabled[0]:
+        frame = detect_faces(frame)
+
+    # Check if frame is valid before processing
+    if frame is not None:
+        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        _, buf = cv2.imencode('.png', cv2.cvtColor(rgb_frame, cv2.COLOR_BGR2RGBA))
+        img_bytes = buf.tobytes()
+        imgtk = tk.PhotoImage(data=img_bytes)
         
-    img_bytes = buf.tobytes()
-    imgtk = tk.PhotoImage(data=img_bytes)
-    label.imgtk = imgtk
-    label.configure(image=imgtk)
+        label.imgtk = imgtk
+        label.configure(image=imgtk)
+
+    # Record video if recording is active
+    if utils_video.video_writer is not None:
+        utils_video.video_writer.write(frame)
+
     root.after(5, update)
 
 root = tk.Tk()
@@ -58,17 +77,22 @@ if not cam.isOpened():
     print("Cannot open camera")
     sys.exit()
 
-# Frame to hold buttons side by side
+# ------ Buttons ------
 btn_frame = tk.Frame(root)
 btn_frame.pack()
 
-# Button to flip camera
-flip_btn = tk.Button(btn_frame, text="Flip", padx=10, pady=10, width=15, command=flip_camera)
-flip_btn.pack(side=tk.LEFT)
-
-# Button to capture camera
-capture_btn = tk.Button(btn_frame, text="Capture", padx=10, pady=10, width=15, command=capture_camera)
-capture_btn.pack(side=tk.LEFT)
+controls = create_controls(
+    btn_frame,
+    lambda: utils_camera.flip_camera(cam, flip_state),
+    lambda: utils_camera.capture_camera(cam, flip_state),
+    lambda: utils_video.start_recording(cam),
+    lambda: utils_video.end_recording(cam),
+    toggle_face_detection,
+    set_brightness,
+    set_contrast,
+    alpha,
+    beta
+)
 
 root.after(0, update)
 root.mainloop()
