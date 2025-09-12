@@ -1,0 +1,10 @@
+README.md
+pyproject.toml
+camera_using_opencv/__init__.py
+camera_using_opencv/main.py
+camera_using_opencv.egg-info/PKG-INFO
+camera_using_opencv.egg-info/SOURCES.txt
+camera_using_opencv.egg-info/dependency_links.txt
+camera_using_opencv.egg-info/entry_points.txt
+camera_using_opencv.egg-info/requires.txt
+camera_using_opencv.egg-info/top_level.txt

@@ -1,0 +1,2 @@
+[console_scripts]
+vertex = camera_using_opencv.main:entry_point

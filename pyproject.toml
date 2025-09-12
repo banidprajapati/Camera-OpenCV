@@ -7,3 +7,9 @@ requires-python = ">=3.12"
 dependencies = [
     "opencv-python>=4.12.0.88",
 ]
+
+[project.scripts]
+vertex = "camera_using_opencv.main:entry_point"
+
+[tool.setuptools]
+packages = ["camera_using_opencv"]
